@@ -92,39 +92,44 @@ def sendOnePing(mySocket, destAddr, ID):
     # Both LISTS and TUPLES consist of a number of objects
     # which can be referenced by their position number within the object.
 
-def doOnePing(destinationAddress, timeout, sequence_number):
-    # Initialize ICMP packet
+def doOnePing(dest_addr, timeout, sequence_number):
+    # Create ICMP packet
     ICMP_TYPE = 8
     ICMP_CODE = 0
-    ID = os.getpid() & 0xFFFF
-    # Convert sequence number to bytes
-    sequence_number_bytes = sequence_number.to_bytes(2, byteorder='big')
-    # Convert ID to bytes
-    ID_bytes = ID.to_bytes(2, byteorder='big')
-    # Create ICMP packet
-    packet = struct.pack("bbHHh", ICMP_TYPE, ICMP_CODE, 0, ID_bytes, sequence_number_bytes)
+    ICMP_CHECKSUM = 0
+    ICMP_ID = 65535  # maximum value for an unsigned short int
+    ICMP_SEQUENCE = sequence_number
+    ICMP_PAYLOAD = b'Hello world'
 
-    # Send packet and record the time
+    # Calculate ICMP checksum
+    checksum = 0
+    packet = struct.pack("!BBHHH6s", ICMP_TYPE, ICMP_CODE, ICMP_CHECKSUM, ICMP_ID, ICMP_SEQUENCE, ICMP_PAYLOAD)
+    for i in range(0, len(packet), 2):
+        checksum += (packet[i] << 8) + packet[i+1]
+    checksum = (checksum >> 16) + (checksum & 0xffff)
+    checksum = ~checksum & 0xffff
+    packet = struct.pack("!BBHHH6s", ICMP_TYPE, ICMP_CODE, checksum, ICMP_ID, ICMP_SEQUENCE, ICMP_PAYLOAD)
+
+    # Create socket and set timeout
+    icmp = socket.getprotobyname("icmp")
+    sock = socket.socket(socket.AF_INET, socket.SOCK_RAW, icmp)
+    sock.settimeout(timeout)
+
+    # Send ICMP packet
     send_time = time.time()
-    sock = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP)
-    sock.sendto(packet, (destinationAddress, 0))
+    sock.sendto(packet, (dest_addr, 0))
 
-    # Receive response from server
-    recv_packet, server_address = sock.recvfrom(1024)
-    recv_time = time.time()
-
-    # Extract ICMP packet from response
-    icmp_header = recv_packet[20:28]
-
-    # Unpack ICMP packet
-    icmp_type, icmp_code, icmp_checksum, icmp_id, icmp_seq = struct.unpack("bbHHh", icmp_header)
-
-    # Check if received packet is an ICMP echo response
-    if icmp_type == 0 and icmp_id == ID:
-        # Calculate round-trip time
-        rtt = (recv_time - send_time) * 1000
-        return rtt
-    else:
+    # Receive ICMP packet
+    try:
+        data, addr = sock.recvfrom(1024)
+        recv_time = time.time()
+        time_diff = recv_time - send_time
+        ip_header = data[:20]
+        iph = struct.unpack('!BBHHHBBH4s4s' , ip_header)
+        ttl = iph[5]
+        saddr = socket.inet_ntoa(iph[8])
+        return time_diff, ttl, saddr
+    except socket.timeout:
         return None
     
 def ping(host, timeout=1):
