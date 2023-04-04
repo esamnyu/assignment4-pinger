@@ -48,7 +48,16 @@ def receiveOnePing(mySocket, ID, timeout, destAddr):
 
         # Fill in start
 
-        # Fetch the ICMP header from the IP packet
+         # Extract the ICMP header from the IP packet
+        icmpHeader = recPacket[20:28]
+        icmpType, code, checksum, packetID, sequence = struct.unpack("bbHHh", icmpHeader)
+
+        if packetID == ID:
+            # Calculate the round-trip time (RTT) and time-to-live (TTL)
+            rtt = (timeReceived - time.time()) * 1000
+            ttl = ord(struct.unpack("c", recPacket[8])[0])
+
+            return "Reply from {}: bytes=32 time={}ms TTL={}".format(destAddr, round(rtt, 2), ttl)
 
         # Fill in end
         timeLeft = timeLeft - howLongInSelect
