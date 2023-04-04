@@ -117,27 +117,31 @@ def ping(host, timeout=1):
     #Add something here to collect the delays of each ping in a list so you can calculate vars after your ping
     
     for i in range(0,4): #Four pings will be sent (loop runs for i=0, 1, 2, 3)
-        delay, statistics = doOnePing(dest, timeout) #what is stored into delay and statistics?
-        response = #store your bytes, rtt, and ttle here in your response pandas dataframe. An example is commented out below for vars
+        delay = doOnePing(dest, timeout)
+        if delay != "Request timed out.":
+            bytes = 32
+            ttl = int(delay.split('TTL=')[1])
+            rtt = float(delay.split('time=')[1].split('ms')[0])
+        else:
+            bytes = 0
+            ttl = 0
+            rtt = 0
+        
+        response = response.append({'bytes':bytes, 'rtt':rtt, 'ttl':ttl}, ignore_index=True)
         print(delay) 
         time.sleep(1)  # wait one second
     
-    packet_lost = 0
-    packet_recv = 0
-    #fill in start. UPDATE THE QUESTION MARKS
-    for index, row in response.iterrows():
-        if ???? == 0: #access your response df to determine if you received a packet or not
-            packet_lost = #????
-        else:
-            packet_recv = #????
-    #fill in end
+    packet_lost = len(response[response['bytes'] == 0])
+    packet_recv = len(response[response['bytes'] == 32])
+    min_rtt = response['rtt'].min()
+    max_rtt = response['rtt'].max()
+    avg_rtt = response['rtt'].mean()
+    
+    print('\nPing statistics for {}:'.format(dest))
+    print('\tPackets: Sent = 4, Received = {}, Lost = {} ({}% loss),'.format(packet_recv, packet_lost, packet_lost/4*100))
+    print('Approximate round trip times in milli-seconds:')
+    print('\tMinimum = {}ms, Maximum = {}ms, Average = {}ms'.format(min_rtt, max_rtt, avg_rtt))
 
-    #You should have the values of delay for each ping here structured in a pandas dataframe; 
-    #fill in calculation for packet_min, packet_avg, packet_max, and stdev
-    vars = pd.DataFrame(columns=['min', 'avg', 'max', 'stddev'])
-    vars = vars.append({'min':str(round(response['rtt'].min(), 2)), 'avg':str(round(response['rtt'].mean(), 2)),'max':str(round(response['rtt'].max(), 2)), 'stddev':str(round(response['rtt'].std(),2))}, ignore_index=True)
-    print (vars) #make sure your vars data you are returning resembles acceptance criteria
-    return vars
 
 if __name__ == '__main__':
     ping("google.com")
