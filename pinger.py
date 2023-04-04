@@ -92,18 +92,41 @@ def sendOnePing(mySocket, destAddr, ID):
     # Both LISTS and TUPLES consist of a number of objects
     # which can be referenced by their position number within the object.
 
-def doOnePing(destAddr, timeout):
-    icmp = getprotobyname("icmp")
+def doOnePing(destinationAddress, timeout, sequence_number):
+    # Initialize ICMP packet
+    ICMP_TYPE = 8
+    ICMP_CODE = 0
+    ID = os.getpid() & 0xFFFF
+    # Convert sequence number to bytes
+    sequence_number_bytes = sequence_number.to_bytes(2, byteorder='big')
+    # Convert ID to bytes
+    ID_bytes = ID.to_bytes(2, byteorder='big')
+    # Create ICMP packet
+    packet = struct.pack("bbHHh", ICMP_TYPE, ICMP_CODE, 0, ID_bytes, sequence_number_bytes)
 
-    # SOCK_RAW is a powerful socket type. For more details:   https://sock-raw.org/papers/sock_raw
-    mySocket = socket(AF_INET, SOCK_RAW, icmp)
+    # Send packet and record the time
+    send_time = time.time()
+    sock = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP)
+    sock.sendto(packet, (destinationAddress, 0))
 
-    myID = os.getpid() & 0xFFFF  # Return the current process i
-    sendOnePing(mySocket, destAddr, myID)
-    delay = receiveOnePing(mySocket, myID, timeout, destAddr)
-    mySocket.close()
-    return delay
+    # Receive response from server
+    recv_packet, server_address = sock.recvfrom(1024)
+    recv_time = time.time()
 
+    # Extract ICMP packet from response
+    icmp_header = recv_packet[20:28]
+
+    # Unpack ICMP packet
+    icmp_type, icmp_code, icmp_checksum, icmp_id, icmp_seq = struct.unpack("bbHHh", icmp_header)
+
+    # Check if received packet is an ICMP echo response
+    if icmp_type == 0 and icmp_id == ID:
+        # Calculate round-trip time
+        rtt = (recv_time - send_time) * 1000
+        return rtt
+    else:
+        return None
+    
 def ping(host, timeout=1):
     # timeout=1 means: If one second goes by without a reply from the server,   
     # the client assumes that either the client's ping or the server's pong is lost
