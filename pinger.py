@@ -1,3 +1,4 @@
+from socket import socket, AF_INET, SOCK_RAW, IPPROTO_ICMP, error, htons
 import socket
 import os
 import sys
