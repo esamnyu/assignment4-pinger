@@ -1,4 +1,4 @@
-import socket 
+from socket import gethostbyname
 import os
 import sys
 import struct
