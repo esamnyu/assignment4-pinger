@@ -92,7 +92,7 @@ def sendOnePing(mySocket, destAddr, ID):
     # Both LISTS and TUPLES consist of a number of objects
     # which can be referenced by their position number within the object.
 
-def doOnePing(dest_addr, timeout, sequence_number):
+def doOnePing(dest_addr, timeout, sequence_number=1):
     # Create ICMP packet
     ICMP_TYPE = 8
     ICMP_CODE = 0
