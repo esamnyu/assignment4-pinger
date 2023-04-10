@@ -56,7 +56,7 @@ def receiveOnePing(mySocket, ID, timeout, destAddr):
             rtt = (timeReceived - time.time()) * 1000
             ttl = struct.unpack("B", bytes([recPacket[8]]))[0]
 
-            return "{},{},{}".format(packetID, round(rtt, 2), ttl)
+            return [packetID, round(rtt, 2), ttl]
 
         timeLeft = timeLeft - howLongInSelect
         if timeLeft <= 0:
@@ -134,6 +134,8 @@ def ping(host, timeout=1):
     destAddr = socket.gethostbyname(host)
     print("Pinging " + destAddr + " using Python:")
     print("")
+
+    response = pd.DataFrame(columns=['packetID','rtt','ttl']) #This creates an empty dataframe with 3 headers with the column specific names declared
     # Send ping requests to a server separated by approximately one second
     counter = 0  # Initialize a counter variable
     while counter < 4:  # Exit the loop after 4 pings have been sent
@@ -147,21 +149,26 @@ def ping(host, timeout=1):
 
         # Receive ICMP packet
         data = receiveOnePing(mySocket, myID, timeout, destAddr)
-
+        rtt = 0 
+        ttl = 0
         # Close ICMP socket
-        mySocket.close()
-
+        mySocket.close() 
         # Print the received data
         if data == "Request timed out.":
             print(data)
         else:
-            packetID, rtt, ttl = data.split(",")
+            rtt = data[1]
+            ttl = data[2]
+            response = response.append({'packetID':data[0], 'rtt':rtt, 'ttl':ttl}, ignore_index=True)
             print("Reply from {}: bytes=32 time={}ms TTL={}".format(destAddr, rtt, ttl))
 
         time.sleep(1)  # Wait approximately one second before sending the next ping request
         counter += 1  # Increment the counter variable
-
-
+    vars = pd.DataFrame(columns=['min', 'avg', 'max', 'stddev'])
+    vars = vars.append({'min':str(round(response['rtt'].min(), 2)), 'avg':str(round(response['rtt'].mean(), 2)),'max':str(round(response['rtt'].max(), 2)), 'stddev':str(round(response['rtt'].std(),2))}, ignore_index=True)
+    print (vars) #make sure your vars data you are returning resembles acceptance criteria
+    return vars
 
 if __name__ == '__main__':
     ping("google.com")
+
