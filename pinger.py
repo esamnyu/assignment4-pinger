@@ -40,11 +40,13 @@ def receiveOnePing(mySocket, ID, timeout, destAddr):
     while 1:
         startedSelect = time.time()
         whatReady = select.select([mySocket], [], [], timeLeft)
-        howLongInSelect = (time.time() - startedSelect)
+        # howLongInSelect = (startedSelect - time.time())
+        
         if whatReady[0] == []:  # Timeout
             return "Request timed out."
 
         timeReceived = time.time()
+        howLongInSelect = (timeReceived - startedSelect)
         recPacket, addr = mySocket.recvfrom(1024)
 
         # Extract the ICMP header from the IP packet
@@ -53,7 +55,7 @@ def receiveOnePing(mySocket, ID, timeout, destAddr):
 
         if packetID == ID:
             # Calculate the round-trip time (RTT) and time-to-live (TTL)
-            rtt = (timeReceived - time.time()) * 1000
+            rtt = (timeReceived - startedSelect ) * 1000
             ttl = struct.unpack("B", bytes([recPacket[8]]))[0]
 
             return [packetID, round(rtt, 2), ttl]
@@ -121,6 +123,7 @@ def doOnePing(dest_addr, timeout, sequence_number=1):
     try:
         data, addr = sock.recvfrom(1024)
         recv_time = time.time()
+        print(send_time, recv_time)
         time_diff = recv_time - send_time
         ip_header = data[:20]
         iph = struct.unpack('!BBHHHBBH4s4s' , ip_header)
