@@ -140,12 +140,14 @@ def ping(host, timeout=1):
     print("")
     
     response = pd.DataFrame(columns=['bytes','rtt','ttl']) #This creates an empty dataframe with 3 headers with the column specific names declared
+    delays = [] # Initialize an empty list to collect the delays of each ping
     
     #Send ping requests to a server separated by approximately one second
     #Add something here to collect the delays of each ping in a list so you can calculate vars after your ping
     
     for i in range(0,4): #Four pings will be sent (loop runs for i=0, 1, 2, 3)
         delay = doOnePing(dest, timeout)
+        delays.append(delay) # Collect delay of each ping in a list
         if delay != "Request timed out.":
             bytes = 32
             ttl = int(delay.split('TTL=')[1])
@@ -169,6 +171,8 @@ def ping(host, timeout=1):
     print('\tPackets: Sent = 4, Received = {}, Lost = {} ({}% loss),'.format(packet_recv, packet_lost, packet_lost/4*100))
     print('Approximate round trip times in milli-seconds:')
     print('\tMinimum = {}ms, Maximum = {}ms, Average = {}ms'.format(min_rtt, max_rtt, avg_rtt))
+    
+    return delays # Return the list of delays
 
 
 if __name__ == '__main__':
