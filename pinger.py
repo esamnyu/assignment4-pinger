@@ -54,8 +54,7 @@ def receiveOnePing(mySocket, ID, timeout, destAddr):
         if packetID == ID:
             # Calculate the round-trip time (RTT) and time-to-live (TTL)
             rtt = (timeReceived - time.time()) * 1000
-            ttl = struct.unpack("B", recPacket[8])[0]
-
+            ttl = struct.unpack("B", bytes([recPacket[8]]))[0]
 
             return "{},{},{}".format(packetID, round(rtt, 2), ttl)
 
