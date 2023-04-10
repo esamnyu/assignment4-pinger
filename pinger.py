@@ -36,7 +36,7 @@ def checksum(string):
 def receiveOnePing(mySocket, ID, timeout, destAddr):
     timeLeft = timeout
 
-    while 1:
+    while True:
         startedSelect = time.time()
         whatReady = select.select([mySocket], [], [], timeLeft)
         howLongInSelect = (time.time() - startedSelect)
@@ -46,18 +46,23 @@ def receiveOnePing(mySocket, ID, timeout, destAddr):
         timeReceived = time.time()
         recPacket, addr = mySocket.recvfrom(1024)
 
-        # Fill in start
-
-         # Extract the ICMP header from the IP packet
+        # Extract the ICMP header from the IP packet
         icmpHeader = recPacket[20:28]
         icmpType, code, checksum, packetID, sequence = struct.unpack("bbHHh", icmpHeader)
 
-        if packetID == ID:
+        if packetID == ID and icmpType == 0 and code == 0:
             # Calculate the round-trip time (RTT) and time-to-live (TTL)
             rtt = (timeReceived - time.time()) * 1000
             ttl = ord(struct.unpack("c", recPacket[8])[0])
 
-            return "Reply from {}: bytes=32 time={}ms TTL={}".format(destAddr, round(rtt, 2), ttl)
+            # Extract the payload from the ICMP packet
+            payload = recPacket[28:]
+
+            return round(rtt, 2), (payload, ttl)
+
+        timeLeft = timeLeft - howLongInSelect
+        if timeLeft <= 0:
+            return "Request timed out."
 
         # Fill in end
         timeLeft = timeLeft - howLongInSelect
