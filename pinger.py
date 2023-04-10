@@ -36,7 +36,7 @@ def checksum(string):
 def receiveOnePing(mySocket, ID, timeout, destAddr):
     timeLeft = timeout
 
-    while True:
+    while 1:
         startedSelect = time.time()
         whatReady = select.select([mySocket], [], [], timeLeft)
         howLongInSelect = (time.time() - startedSelect)
@@ -50,21 +50,13 @@ def receiveOnePing(mySocket, ID, timeout, destAddr):
         icmpHeader = recPacket[20:28]
         icmpType, code, checksum, packetID, sequence = struct.unpack("bbHHh", icmpHeader)
 
-        if packetID == ID and icmpType == 0 and code == 0:
+        if packetID == ID:
             # Calculate the round-trip time (RTT) and time-to-live (TTL)
             rtt = (timeReceived - time.time()) * 1000
             ttl = ord(struct.unpack("c", recPacket[8])[0])
 
-            # Extract the payload from the ICMP packet
-            payload = recPacket[28:]
+            return "{},{},{}".format(packetID, round(rtt, 2), ttl)
 
-            return round(rtt, 2), (payload, ttl)
-
-        timeLeft = timeLeft - howLongInSelect
-        if timeLeft <= 0:
-            return "Request timed out."
-
-        # Fill in end
         timeLeft = timeLeft - howLongInSelect
         if timeLeft <= 0:
             return "Request timed out."
@@ -138,46 +130,34 @@ def doOnePing(dest_addr, timeout, sequence_number=1):
         return None
     
 def ping(host, timeout=1):
-    # timeout=1 means: If one second goes by without a reply from the server,   
-    # the client assumes that either the client's ping or the server's pong is lost
-    dest = socket.gethostbyname(host)
-    print("\nPinging " + dest + " using Python:")
+    destAddr = socket.gethostbyname(host)
+    print("Pinging " + destAddr + " using Python:")
     print("")
-    
-    response = pd.DataFrame(columns=['bytes','rtt','ttl']) #This creates an empty dataframe with 3 headers with the column specific names declared
-    delays = [] # Initialize an empty list to collect the delays of each ping
-    
-    #Send ping requests to a server separated by approximately one second
-    #Add something here to collect the delays of each ping in a list so you can calculate vars after your ping
-    
-    for i in range(0,4): #Four pings will be sent (loop runs for i=0, 1, 2, 3)
-        delay = doOnePing(dest, timeout)
-        delays.append(delay) # Collect delay of each ping in a list
-        if delay != "Request timed out.":
-            bytes = 32
-            ttl = int(delay.split('TTL=')[1])
-            rtt = float(delay.split('time=')[1].split('ms')[0])
+    # Send ping requests to a server separated by approximately one second
+    while True:
+        # Create ICMP socket
+        icmp = socket.getprotobyname("icmp")
+        mySocket = socket.socket(socket.AF_INET, socket.SOCK_RAW, icmp)
+        myID = os.getpid() & 0xFFFF  # Generate a random ICMP packet ID
+
+        # Send ICMP packet
+        sendOnePing(mySocket, destAddr, myID)
+
+        # Receive ICMP packet
+        data = receiveOnePing(mySocket, myID, timeout, destAddr)
+
+        # Close ICMP socket
+        mySocket.close()
+
+        # Print the received data
+        if data == "Request timed out.":
+            print(data)
         else:
-            bytes = 0
-            ttl = 0
-            rtt = 0
-        
-        response = response.append({'bytes':bytes, 'rtt':rtt, 'ttl':ttl}, ignore_index=True)
-        print(delay) 
-        time.sleep(1)  # wait one second
-    
-    packet_lost = len(response[response['bytes'] == 0])
-    packet_recv = len(response[response['bytes'] == 32])
-    min_rtt = response['rtt'].min()
-    max_rtt = response['rtt'].max()
-    avg_rtt = response['rtt'].mean()
-    
-    print('\nPing statistics for {}:'.format(dest))
-    print('\tPackets: Sent = 4, Received = {}, Lost = {} ({}% loss),'.format(packet_recv, packet_lost, packet_lost/4*100))
-    print('Approximate round trip times in milli-seconds:')
-    print('\tMinimum = {}ms, Maximum = {}ms, Average = {}ms'.format(min_rtt, max_rtt, avg_rtt))
-    
-    return delays # Return the list of delays
+            packetID, rtt, ttl = data.split(",")
+            print("Reply from {}: bytes=32 time={}ms TTL={}".format(destAddr, rtt, ttl))
+
+        time.sleep(1)  # Wait approximately one second before sending the next ping request
+
 
 
 if __name__ == '__main__':
