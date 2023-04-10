@@ -135,7 +135,8 @@ def ping(host, timeout=1):
     print("Pinging " + destAddr + " using Python:")
     print("")
     # Send ping requests to a server separated by approximately one second
-    while True:
+    counter = 0  # Initialize a counter variable
+    while counter < 4:  # Exit the loop after 4 pings have been sent
         # Create ICMP socket
         icmp = socket.getprotobyname("icmp")
         mySocket = socket.socket(socket.AF_INET, socket.SOCK_RAW, icmp)
@@ -158,6 +159,7 @@ def ping(host, timeout=1):
             print("Reply from {}: bytes=32 time={}ms TTL={}".format(destAddr, rtt, ttl))
 
         time.sleep(1)  # Wait approximately one second before sending the next ping request
+        counter += 1  # Increment the counter variable
 
 
 
