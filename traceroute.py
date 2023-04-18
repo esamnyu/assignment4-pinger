@@ -1,4 +1,4 @@
-from socket import *
+import socket
 import os
 import sys
 import struct
@@ -11,12 +11,8 @@ ICMP_ECHO_REQUEST = 8
 MAX_HOPS = 60
 TIMEOUT = 2.0
 TRIES = 1
-# The packet that we shall send to each router along the path is the ICMP echo
-# request packet, which is exactly what we had used in the ICMP ping exercise.
-# We shall use the same packet that we built in the Ping exercise
 
 def checksum(string):
-# In this function we make the checksum of our packet
     csum = 0
     countTo = (len(string) // 2) * 2
     count = 0
@@ -43,7 +39,6 @@ def build_packet():
     header = struct.pack("bbHHh", ICMP_ECHO_REQUEST, 0, 0, ID, 1)
     data = struct.pack("d", time.time())
 
-    # Calculate the checksum and update the header
     my_checksum = checksum(header + data)
     header = struct.pack("bbHHh", ICMP_ECHO_REQUEST, 0, socket.htons(my_checksum), ID, 1)
     packet = header + data
@@ -52,12 +47,11 @@ def build_packet():
 def get_route(hostname):
     timeLeft = TIMEOUT
     df = pd.DataFrame(columns=['Hop Count', 'Try', 'IP', 'Hostname', 'Response Code'])
-    destAddr = gethostbyname(hostname)
+    destAddr = socket.gethostbyname(hostname)
 
     for ttl in range(1, MAX_HOPS):
         for tries in range(TRIES):
-            # Create a raw socket
-            mySocket = socket.socket(socket.AF_INET, socket.SOCK_RAW, IPPROTO_ICMP)
+            mySocket = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.getprotobyname("icmp"))
             mySocket.setsockopt(socket.IPPROTO_IP, socket.IP_TTL, struct.pack('I', ttl))
             mySocket.settimeout(TIMEOUT)
             try:
@@ -80,7 +74,7 @@ def get_route(hostname):
                 # Extract ICMP header information
                 icmp_header = recvPacket[20:28]
                 types, code, checksum, packet_id, sequence = struct.unpack("bbHHh", icmp_header)
-                
+
                 # Get the hostname
                 try:
                     host = socket.gethostbyaddr(addr[0])[0]
