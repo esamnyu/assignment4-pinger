@@ -39,19 +39,13 @@ def checksum(string):
     return answer
 
 def build_packet():
-    #Fill in start
-    # In the sendOnePing() method of the ICMP Ping exercise ,firstly the header of our
-    # packet to be sent was made, secondly the checksum was appended to the header and
-    # then finally the complete packet was sent to the destination.
+    ID = os.getpid() & 0xFFFF
+    header = struct.pack("bbHHh", ICMP_ECHO_REQUEST, 0, 0, ID, 1)
+    data = struct.pack("d", time.time())
 
-    # Make the header in a similar way to the ping exercise.
-    # Append checksum to the header.
-
-    # Don’t send the packet yet , just return the final packet in this function.
-    #Fill in end
-
-    # So the function ending should look like this
-
+    # Calculate the checksum and update the header
+    my_checksum = checksum(header + data)
+    header = struct.pack("bbHHh", ICMP_ECHO_REQUEST, 0, socket.htons(my_checksum), ID, 1)
     packet = header + data
     return packet
 
@@ -59,77 +53,48 @@ def get_route(hostname):
     timeLeft = TIMEOUT
     df = pd.DataFrame(columns=['Hop Count', 'Try', 'IP', 'Hostname', 'Response Code'])
     destAddr = gethostbyname(hostname)
-    
-    for ttl in range(1,MAX_HOPS):
-        for tries in range(TRIES):
- 
-            #Fill in start
-            # Make a raw socket named mySocket
-            #Fill in end
 
-            mySocket.setsockopt(IPPROTO_IP, IP_TTL, struct.pack('I', ttl))
+    for ttl in range(1, MAX_HOPS):
+        for tries in range(TRIES):
+            # Create a raw socket
+            mySocket = socket.socket(socket.AF_INET, socket.SOCK_RAW, IPPROTO_ICMP)
+            mySocket.setsockopt(socket.IPPROTO_IP, socket.IP_TTL, struct.pack('I', ttl))
             mySocket.settimeout(TIMEOUT)
             try:
                 d = build_packet()
                 mySocket.sendto(d, (hostname, 0))
-                t= time.time()
+                t = time.time()
                 startedSelect = time.time()
                 whatReady = select.select([mySocket], [], [], timeLeft)
                 howLongInSelect = (time.time() - startedSelect)
-                if whatReady[0] == []: # Timeout
-                    #Fill in start
-                    #append response to your dataframe including hop #, try #, and "timeout" responses as required by the acceptance criteria
-                    #print (df)
-                    #Fill in end
+                if whatReady[0] == []:  # Timeout
+                    df = df.append({"Hop Count": ttl, "Try": tries + 1, "IP": None, "Hostname": None, "Response Code": "timeout"}, ignore_index=True)
                 recvPacket, addr = mySocket.recvfrom(1024)
                 timeReceived = time.time()
                 timeLeft = timeLeft - howLongInSelect
                 if timeLeft <= 0:
-                    #Fill in start
-                    #append response to your dataframe including hop #, try #, and "timeout" responses as required by the acceptance criteria
-                    #print (df)
-                    #Fill in end
+                    df = df.append({"Hop Count": ttl, "Try": tries + 1, "IP": None, "Hostname": None, "Response Code": "timeout"}, ignore_index=True)
             except Exception as e:
-                #print (e) # uncomment to view exceptions
                 continue
-
             else:
-                #Fill in start
-                #Fetch the icmp type from the IP packet
-                #Fill in end
-                try: #try to fetch the hostname of the router that returned the packet - don't confuse with the hostname that you are tracing
-                    #Fill in start
-                    #Fill in end
-                except herror:   #if the router host does not provide a hostname use "hostname not returnable"
-                    #Fill in start
-                    #Fill in end
+                # Extract ICMP header information
+                icmp_header = recvPacket[20:28]
+                types, code, checksum, packet_id, sequence = struct.unpack("bbHHh", icmp_header)
+                
+                # Get the hostname
+                try:
+                    host = socket.gethostbyaddr(addr[0])[0]
+                except socket.herror:
+                    host = "hostname not returnable"
 
-                if types == 11:
-                    bytes = struct.calcsize("d")
-                    timeSent = struct.unpack("d", recvPacket[28:28 +
-                    bytes])[0]
-                    #Fill in start
-                    #You should update your dataframe with the required column field responses here
-                    #Fill in end
-                elif types == 3:
-                    bytes = struct.calcsize("d")
-                    timeSent = struct.unpack("d", recvPacket[28:28 + bytes])[0]
-                    #Fill in start
-                    #You should update your dataframe with the required column field responses here
-                    #Fill in end
-                elif types == 0:
-                    bytes = struct.calcsize("d")
-                    timeSent = struct.unpack("d", recvPacket[28:28 + bytes])[0]
-                    #Fill in start
-                    #You should update your dataframe with the required column field responses here
-                    #Fill in end
+                # Append data to the DataFrame
+                df = df.append({"Hop Count": ttl, "Try": tries + 1, "IP": addr[0], "Hostname": host, "Response Code": types}, ignore_index=True)
+
+                if types == 0:
                     return df
-                else:
-                    #Fill in start
-                    #If there is an exception/error to your if statements, you should append that to your df here
-                    #Fill in end
                 break
     return df
 
 if __name__ == '__main__':
-    get_route("google.co.il")
+    df = get_route("google.com")
+    print(df)
